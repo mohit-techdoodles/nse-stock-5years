@@ -4,6 +4,7 @@ Run locally:  streamlit run app.py
 """
 
 import time
+import calendar
 from datetime import date, timedelta
 
 import pandas as pd
@@ -11,6 +12,39 @@ import streamlit as st
 import yfinance as yf
 
 st.set_page_config(page_title="NSE Stock Data Fetcher", page_icon="📈", layout="centered")
+
+MIN_YEAR = 1990
+
+
+def date_selector(label, default_date, key_prefix):
+    """Year/Month/Day dropdowns — avoids the native date picker's slow decade-by-decade
+    year scrolling when the allowed range spans many decades."""
+    years = list(range(date.today().year, MIN_YEAR - 1, -1))  # most recent first
+    months = list(range(1, 13))
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        year = st.selectbox(
+            f"{label} — Year", years,
+            index=years.index(default_date.year),
+            key=f"{key_prefix}_year",
+        )
+    with c2:
+        month = st.selectbox(
+            f"{label} — Month", months,
+            index=default_date.month - 1,
+            format_func=lambda m: date(2000, m, 1).strftime("%b"),
+            key=f"{key_prefix}_month",
+        )
+    with c3:
+        max_day = calendar.monthrange(year, month)[1]
+        default_day = min(default_date.day, max_day)
+        day = st.selectbox(
+            f"{label} — Day", list(range(1, max_day + 1)),
+            index=default_day - 1,
+            key=f"{key_prefix}_day",
+        )
+    return date(year, month, day)
 
 
 def fetch_with_retry(ticker, start, end, retries=3, delay=3):
@@ -80,23 +114,11 @@ with col2:
 default_start = date.today() - timedelta(days=5 * 365)
 default_end = date.today()
 
-dcol1, dcol2 = st.columns(2)
-with dcol1:
-    start_date = st.date_input(
-        "Start date",
-        value=default_start,
-        min_value=date(1990, 1, 1),
-        max_value=date.today(),
-        help="Click the field and type the date (e.g. 1990/05/20) to jump straight to it — faster than scrolling the calendar.",
-    )
-with dcol2:
-    end_date = st.date_input(
-        "End date",
-        value=default_end,
-        min_value=date(1990, 1, 1),
-        max_value=date.today(),
-        help="Click the field and type the date (e.g. 2024/05/20) to jump straight to it — faster than scrolling the calendar.",
-    )
+st.write("Start date")
+start_date = date_selector("Start", default_start, "start")
+
+st.write("End date")
+end_date = date_selector("End", default_end, "end")
 
 generate = st.button("Generate", type="primary", use_container_width=True)
 
