@@ -79,6 +79,7 @@ default_end = date.today()
 date_range = st.date_input(
     "Date range",
     value=(default_start, default_end),
+    min_value=date(1990, 1, 1),   # allow picking any year back to 1990
     max_value=date.today(),
 )
 
