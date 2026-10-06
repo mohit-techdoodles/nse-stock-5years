@@ -4,16 +4,29 @@ Run locally:  streamlit run app.py
 """
 
 import time
+import random
 import calendar
 from datetime import date, timedelta
 
 import pandas as pd
+import requests
 import streamlit as st
 import yfinance as yf
 
 st.set_page_config(page_title="NSE Stock Data Fetcher", page_icon="📈", layout="centered")
 
 MIN_YEAR = 1990
+
+# A browser-like session helps avoid Yahoo Finance treating requests from
+# shared cloud-host IPs (e.g. Streamlit Cloud) as bot traffic.
+_session = requests.Session()
+_session.headers.update({
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+})
 
 
 def date_selector(label, default_date, key_prefix):
@@ -47,8 +60,10 @@ def date_selector(label, default_date, key_prefix):
     return date(year, month, day)
 
 
-def fetch_with_retry(ticker, start, end, retries=3, delay=3):
-    """Fetch data with retry on failure/empty response."""
+def fetch_with_retry(ticker, start, end, retries=4, base_delay=5):
+    """Fetch data with retry + exponential backoff.
+    Longer, increasing delays help when Yahoo is soft-rate-limiting
+    (vs. a hard IP block, which no amount of retrying fixes)."""
     for attempt in range(1, retries + 1):
         try:
             df = yf.download(
@@ -58,6 +73,7 @@ def fetch_with_retry(ticker, start, end, retries=3, delay=3):
                 interval="1d",
                 auto_adjust=True,
                 progress=False,
+                session=_session,
             )
             if not df.empty:
                 return df, None
@@ -66,7 +82,8 @@ def fetch_with_retry(ticker, start, end, retries=3, delay=3):
         else:
             last_error = "Empty response"
         if attempt < retries:
-            time.sleep(delay)
+            sleep_time = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 2)
+            time.sleep(sleep_time)
     return pd.DataFrame(), last_error
 
 
