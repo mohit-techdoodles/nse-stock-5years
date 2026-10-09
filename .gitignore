@@ -1,0 +1,16 @@
+# secrets & local config
+.env
+
+# local dev database
+*.db
+*.db-journal
+
+# python
+__pycache__/
+*.pyc
+venv/
+*.egg-info/
+
+# OS/editor
+.DS_Store
+.vscode/
